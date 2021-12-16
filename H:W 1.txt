@@ -1,0 +1,163 @@
+1. Configuration window
+enter host name - the name of the server you are accessing or IP address
+own server or business server
+2. save public key (you dont have to repeat typing)
+connection type ssh and port 22
+3. Password
+4. Intro screen and command promt
+5. First thing to do - check the files or directory or programs
+6. Type "ls"
+7. Type "ls ./"  things in my main directory
+8. "cal" calender
+9. "date" date
+10. "dc" calculator (use p for output)
+11. help for list of directory command
+12. basic text file and save
+type pico or vi
+vi newfile.txt
+mdulation window then type
+save - esc hold shift z twice
+13. create new directory
+mkdir newfile
+ls
+14. save a file
+vi newfiles/file.txt
+I to insert then type what ever you want
+view ls newfile
+vi newfiles/file.txt
+esc shift to exit
+15. delete file
+rm name of file
+promt type yes
+16. remove directory
+rmdir
+https://youtu.be/cEbYCzTzQr8
+tricks
+copy a column - hold Alt key
+duplicate - right click and open a new session'
+inactive putyy - restart
+
+qza files cannot be viewed but qzv can be viewed
+
+#home directory
+cd ~
+
+#Always activate qiime before jobs
+conda activate qiime2-2021.8
+
+#Change file to visualize (Quality control)
+qiime demux summarize \
+  --i-data demux-paired-end.qza \         
+  --o-visualization demux-pyc-sub.qzv
+
+scp ebrefo@pbio381.uvm.edu:~/myresults/*.qzv
+
+# Before denoising run:The /tmp directory on the server is too small
+export TMPDIR="/data/project_data/16S/tmptmpdir"
+echo $TMPDIR 
+
+qiime dada2 denoise-paired \
+  --i-demultiplexed-seqs demux-paired-end.qza \
+  --p-n-threads 4 \
+  --p-trim-left-f 16 \
+  --p-trim-left-r 0 \
+  --p-trunc-len-f 289 \
+  --p-trunc-len-r 257 \
+  --o-table table.qza \
+  --o-representative-sequences rep-seqs.qza \
+  --o-denoising-stats denoising-stats.qza
+
+qiime feature-table summarize \
+  --i-table table.qza \
+  --o-visualization table.qzv \
+  --m-sample-metadata-file /data/project_data/16S/pyc_manifest
+
+qiime feature-table tabulate-seqs \
+  --i-data rep-seqs.qza \
+  --o-visualization rep-seqs.qzv
+
+qiime metadata tabulate \
+  --m-input-file denoising-stats.qza \
+  --o-visualization denoising-stats.qzv
+
+qiime phylogeny align-to-tree-mafft-fasttree \
+  --i-sequences /data/project_data/16S/mprun/rep-seqs.qza \
+  --o-alignment aligned-rep-seqs.qza \
+  --o-masked-alignment masked-aligned-rep-seqs.qza \
+  --o-tree unrooted-tree.qza \
+  --o-rooted-tree rooted-tree.qza
+
+https://view.qiime2.org/visualization/?src=6868dda7-8fb7-4117-85f1-99a1e831687f&type=html
+
+#calculate whole suite of alpha and beta diversity:
+qiime diversity core-metrics-phylogenetic \
+  --i-phylogeny rooted-tree.qza \
+  --i-table table.qza \
+  --p-sampling-depth 13327 \
+  --m-metadata-file /data/project_data/16S/pyc_manifest \
+  --output-dir core-metrics-results
+
+#Test for association between alpha diversity and metadata (richness and evenness):
+qiime diversity alpha-group-significance \
+  --i-alpha-diversity core-metrics-results/faith_pd_vector.qza \
+  --m-metadata-file /data/project_data/16S/pyc_manifest \
+  --o-visualization core-metrics-results/faith-pd-group-significance.qzv
+
+qiime diversity alpha-group-significance \
+  --i-alpha-diversity core-metrics-results/evenness_vector.qza \
+  --m-metadata-file /data/project_data/16S/pyc_manifest \
+  --o-visualization core-metrics-results/evenness-group-significance.qzv
+
+#Test for differences in beta diversity between groups:
+qiime diversity beta-group-significance \
+  --i-distance-matrix core-metrics-results/weighted_unifrac_distance_matrix.qza \
+  --m-metadata-file /data/project_data/16S/pyc_subset_manifest \
+  --m-metadata-column site-animal-health \
+  --o-visualization core-metrics-results/weighted-unifrac-site-animal-health-significance.qzv \
+  --p-pairwise
+
+qiime diversity beta-group-significance \
+  --i-distance-matrix core-metrics-results/weighted_unifrac_distance_matrix.qza \
+  --m-metadata-file /data/project_data/16S/pyc_subset_manifest \
+  --m-metadata-column site-status \
+  --o-visualization core-metrics-results/weighted-unifrac-site-status-group-significance.qzv \
+  --p-pairwise
+
+#Refraction not required
+
+qiime taxa barplot \
+  --i-table table.qza \
+  --i-taxonomy taxonomy.qza \
+  --m-metadata-file /data/project_data/16S/pyc_manifest \
+  --o-visualization ~/myresults/16S/taxa-bar-plots.qzv
+
+export TMPDIR="/data/project_data/16S/tmptmpdir/to/new/tempdir"
+echo $TMPDIR 
+
+Invalid value for --i-demultiplexed-seqs: There was not enough space left on /tmp to extract the artifact demux-paired-end.qza. (try setting $TMPDIR to a directory with more space, or increasing the size of `/tmp`)
+
+qiime taxa barplot \
+  --i-table ~/myresults/table.qza \
+  --i-taxonomy ~/myresults/taxonomy.qza \
+  --m-metadata-file /data/project_data/16S/pyc_manifest \
+  --o-visualization ~/training-feature-classifiers/taxa-bar-plots.qzv
+
+
+cd data/project_data/16S/tmptmpdir
+cd /data/project_data/16S
+
+qiime feature-classifier classify-sklearn \
+  --i-classifier /data/project_data/16S/training-feature-classifiers/classifier.qza \
+  --i-reads ~/myresults/rep-seqs.qza \
+  --o-classification taxonomy.qza
+
+
+qiime composition add-pseudocount \
+  --i-table ~/myresults/table.qza \
+  --o-composition-table ~/myresults/comp-table.qza
+ 
+qiime composition ancom \
+  --i-table ~/myresults/comp-table.qza \
+  --m-metadata-file /data/project_data/16S/pyc_subset_manifest \
+  --m-metadata-column site-animal-health \
+  --o-visualization ~/myresults/ancom-site-animal-health.qzv 
